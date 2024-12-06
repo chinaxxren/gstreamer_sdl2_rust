@@ -38,6 +38,36 @@ pub enum ScaleMode {
     Fill, // 完全按原比例显示，进行裁剪，画面全屏显示
 }
 
+#[derive(Copy, Clone, Debug)]
+pub enum PlaybackSpeed {
+    Half,    // 0.5倍速
+    Normal,  // 1.0倍速
+    Fast,    // 1.5倍速
+    Double,  // 2.0倍速
+}
+
+impl PlaybackSpeed {
+    // 获取播放速度的倍数值
+    fn get_rate(&self) -> f64 {
+        match self {
+            PlaybackSpeed::Half => 0.5,
+            PlaybackSpeed::Normal => 1.0,
+            PlaybackSpeed::Fast => 1.5,
+            PlaybackSpeed::Double => 2.0,
+        }
+    }
+
+    // 切换到下一个速度
+    fn next(&self) -> Self {
+        match self {
+            PlaybackSpeed::Half => PlaybackSpeed::Normal,
+            PlaybackSpeed::Normal => PlaybackSpeed::Fast,
+            PlaybackSpeed::Fast => PlaybackSpeed::Double,
+            PlaybackSpeed::Double => PlaybackSpeed::Half,
+        }
+    }
+}
+
 // 计算视频显示的目标矩形
 fn calculate_display_rect(
     video_width: u32,
@@ -244,6 +274,8 @@ fn main() {
 
     // 初始化缩放模式
     let mut scale_mode = ScaleMode::Fit;
+    // 初始化播放速度
+    let mut playback_speed = PlaybackSpeed::Normal;
 
     // 主循环
     'running: loop {
@@ -355,6 +387,44 @@ fn main() {
                             .set_state(gstreamer::State::Playing)
                             .expect("Unable to set the pipeline to the `Playing` state");
                         println!("Pipeline playing...");
+                    }
+                }
+                // 切换播放速度
+                Event::KeyDown {
+                    keycode: Some(Keycode::S),
+                    ..
+                } => {
+                    playback_speed = playback_speed.next();
+                    let rate = playback_speed.get_rate();
+                    
+                    // 获取当前位置
+                    if let Some(position) = pipeline.query_position::<gstreamer::ClockTime>() {
+                        // 暂停管道
+                        pipeline
+                            .set_state(gstreamer::State::Paused)
+                            .expect("Unable to set the pipeline to the `Paused` state");
+
+                        // 设置新的播放速度
+                        let seek_event = gstreamer::event::Seek::new(
+                            rate,                                    // 播放速度
+                            gstreamer::SeekFlags::FLUSH | gstreamer::SeekFlags::ACCURATE,
+                            gstreamer::SeekType::Set,               // 设置绝对位置
+                            position,                               // 开始位置
+                            gstreamer::SeekType::None,             // 结束类型
+                            gstreamer::ClockTime::NONE,            // 结束位置
+                        );
+                        
+                        // 发送seek事件
+                        pipeline.send_event(seek_event);
+
+                        // 如果之前是播放状态，恢复播放
+                        if playing {
+                            pipeline
+                                .set_state(gstreamer::State::Playing)
+                                .expect("Unable to set the pipeline to the `Playing` state");
+                        }
+                        
+                        println!("Playback speed changed to {:?} ({}x)", playback_speed, rate);
                     }
                 }
                 _ => {}
