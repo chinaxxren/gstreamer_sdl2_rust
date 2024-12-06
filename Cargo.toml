@@ -1,0 +1,20 @@
+[package]
+name = "rustsdlplayer"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+gstreamer = "0.19.5"
+gstreamer-app = "0.19.2"
+gstreamer-video = "0.19.5"
+url = "2.3.1"
+
+[dependencies.sdl2]
+version = "0.35.2"
+default-features = false
+features = ["ttf"]
+
+[build-dependencies]
+pkg-config = "0.3" 
